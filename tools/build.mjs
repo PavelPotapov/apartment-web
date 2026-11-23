@@ -18,10 +18,24 @@ const vector=(v,n)=>Array.isArray(v)&&v.length===n&&v.every(Number.isFinite);
 if(!vector(release.spawn,3)||!vector(release.bounds.min,3)||!vector(release.bounds.max,3)||!release.floorPolygons?.length||
  !release.floorPolygons.every(p=>p.length>=3&&p.every(v=>vector(v,2)))||!release.colliders?.length||!release.colliders.every(b=>vector(b,4)))throw Error('Invalid navigation mesh');
 if(!release.doors.every(d=>vector(d.closed,4)&&vector(d.hinge,3)&&Number.isFinite(d.angle)))throw Error('Invalid door configuration');
+const frontKeys=['plan','dimensions','sockets','coordinates','plumbing'];
+if(tech.frontSheets?.length!==frontKeys.length || !tech.frontSheets.every((s,i)=>s.key===frontKeys[i] && s.page===i+1 && s.title))throw Error('Incomplete opening sheets');
+if(!tech.plan || tech.plan.units!=='mm' || !tech.plan.rooms?.length || !tech.plan.sockets?.length || !tech.plan.furniture?.some(i=>i.category==='plumbing'))throw Error('Incomplete technical plan');
+const wallPlan=tech.plan;
+const footprint=p=>Array.isArray(p)&&p.length>=3&&p.every(point=>vector(point,2));
+if(!vector(wallPlan.bounds,4)||!wallPlan.rooms.every(r=>footprint(r.polygon))||
+ !wallPlan.wallPolygons?.length||!wallPlan.wallPolygons.every(footprint)||
+ !wallPlan.furniture.every(i=>i.id&&footprint(i.polygon))||
+ !wallPlan.sockets.every(s=>s.code&&Number.isFinite(s.x)&&Number.isFinite(s.y)&&Number.isFinite(s.u)&&s.heightsMm?.length&&s.heightsMm.every(Number.isFinite)))
+ throw Error('Invalid technical plan geometry or electrical coordinates');
 const roomIds=new Set(tech.rooms.map(r=>r.id)),wallIds=new Set();
 for(const [index,wall] of tech.walls.entries()){
- if(!roomIds.has(wall.roomId)||wallIds.has(wall.code)||!wall.width||!wall.height||wall.page!==index+1)throw Error('Invalid sheet '+wall.code);
- wallIds.add(wall.code);if(!(await stat(local(data,wall.image))).size)throw Error('Empty sheet '+wall.code);
+ if(!roomIds.has(wall.roomId)||wallIds.has(wall.code)||!wall.width||!wall.height||wall.page!==index+tech.frontSheets.length+1)throw Error('Invalid sheet '+wall.code);
+ wallIds.add(wall.code);
+ if(!vector(wall.origin,2)||!vector(wall.direction,2)||!Array.isArray(wall.apertures)||!vector(wall.elevations?.extent,4))throw Error('Invalid wall drawing coordinates '+wall.code);
+ for(const image of [wall.image,wall.elevations.empty,wall.elevations.furnished]){
+  if(!(await stat(local(data,image))).size)throw Error('Empty drawing '+wall.code);
+ }
 }
 const pdf=await readFile(local(data,release.pdf));if(!pdf.subarray(0,5).equals(Buffer.from('%PDF-')))throw Error('Invalid PDF');
 for(const file of ['index.html','scene.html','viewer.js','movement.js','reference.js','assets/living.webp','vendor/three/build/three.module.min.js'])await stat(local(source,file));

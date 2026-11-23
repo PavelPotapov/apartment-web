@@ -4,12 +4,61 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {jsonAsset,projectAsset,reportError} from './data.js';
 import {avatar,walkAllowed,hitsDoor} from './movement.js';
+import {panorama,excursion,advancePlayback,approachDoors} from './tour-playback.js';
 const $=id=>document.getElementById(id), stage=$('stage'),canvas=$('scene'),progress=$('progress');
 let mode='orbit',release,model,renderer,world,camera,orbit,doors=[],ceiling=[],yaw=0,pitch=0,orbitReady=false;
 let previous=0, drag=null, nearest=null, walkingPosition=null, walkingYaw=0,walkingPitch=0;
+let renderSampleTime=0,renderSampleFrames=0;
 const keys=new Set(), held=new Set(), modes=Array.from(document.querySelectorAll('[data-mode]'));
 const zoomControls=document.querySelector('.zoom-controls'), walkControl=document.querySelector('.walk-control');
 const center=new THREE.Vector3(), size=new THREE.Vector3(),temp=new THREE.Vector3();
+let player=null,requestId=0,preparing=false,rate=1,routePromise=null,lastPlaybackTitle='';
+function loadRoute(){
+ if(!routePromise)routePromise=jsonAsset(release.technical).then(technical=>new Promise((resolve,reject)=>{
+  const worker=new Worker(new URL('./tour-worker.js',import.meta.url),{type:'module'});
+  worker.onmessage=({data})=>{worker.terminate();data.error?reject(Error(data.error)):resolve(data.route)};
+  worker.onerror=e=>{worker.terminate();reject(Error(e.message||'Ошибка построения маршрута'))};
+  worker.postMessage({release,technical});
+ })).catch(e=>{routePromise=null;throw e});
+ return routePromise;
+}
+function playbackUI(message=''){
+ const active=Boolean(player)||preparing;
+ $('walk-playback').hidden=mode!=='walk';$('play-choices').hidden=active;$('play-controls').hidden=!active;
+ stage.classList.toggle('playing',active);$('play-message').textContent=message;
+ $('play-pause').hidden=preparing;$('play-rate').hidden=preparing;
+ $('play-pause').textContent=player?.paused?'Продолжить':'Пауза';$('play-rate').textContent=String(rate).replace('.',',')+'×';
+ lastPlaybackTitle='';updatePlayTitle();
+}
+function updatePlayTitle(){
+ if(!player&&!preparing)return;
+ const stop=player?.route?.stops[player.index];
+ const text=preparing?'Подготовка маршрута…':player.kind==='panorama'?'Осмотр 360°':stop?(player.index+1)+' / '+player.route.stops.length+' · '+stop.label:'Экскурсия';
+ if(text!==lastPlaybackTitle){$('play-title').textContent=text;lastPlaybackTitle=text}
+ $('play-progress').value=player?.progress||0;
+}
+function cancelPlayback(message=''){
+ requestId++;preparing=false;player=null;playbackUI(message);
+}
+function applyPose(){
+ const p=player.pose;camera.position.set(p.x,p.y,p.z);yaw=p.yaw;pitch=p.pitch;applyLook();
+}
+function startPanorama(){
+ requestId++;preparing=false;keys.clear();held.clear();drag=null;rate=1;
+ player=panorama({x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw,pitch});playbackUI();
+}
+async function startTour(){
+ const id=++requestId;player=null;preparing=true;rate=1;keys.clear();held.clear();drag=null;playbackUI();
+ try{
+  const route=await loadRoute();if(id!==requestId||mode!=='walk')return;
+  player=excursion(route,avatar.eyeHeight+(release.floorY||0),release.heading??0);applyPose();
+  player.paused=document.hidden;preparing=false;playbackUI();
+ }catch(e){if(id===requestId){console.error(e);cancelPlayback('Не удалось построить маршрут. Можно продолжить прогулку вручную.')}}
+}
+const tourEnvironment={
+ allowed:(x,z)=>walkAllowed(x,z,release,doors),
+ waitForDoors:(stop,p)=>approachDoors(doors,stop,p)
+};
 let radius=10;
 function setStatus(){
  const label=nearest ? (Math.abs(nearest.target)>.01?'Закрыть дверь':'Открыть дверь') : 'Дверь';
@@ -33,7 +82,7 @@ function setMode(which,reset=false){
  if(mode==='walk' && which==='orbit'){
   walkingPosition=camera.position.clone();walkingYaw=yaw;walkingPitch=pitch;
  }
- mode=which;orbit.enabled=which==='orbit';const walk=which==='walk';
+ mode=which;cancelPlayback();orbit.enabled=which==='orbit';const walk=which==='walk';
  ceiling.forEach(o=>o.visible=walk);
  stage.classList.toggle('walk-mode',walk);zoomControls.hidden=walk;walkControl.hidden=!walk;
  modes.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===which)));
@@ -84,14 +133,33 @@ function operateDoor(){
  setStatus();
 }
 function animate(now){
- const dt=Math.min(.05,(now-previous)/1000||0);previous=now;
+ const elapsed=previous?(now-previous)/1000:0,dt=Math.min(.18,elapsed);previous=now;
+ if(!document.hidden&&elapsed>0&&elapsed<.5){
+  renderSampleTime+=elapsed;renderSampleFrames++;
+  if(renderSampleTime>=2.4){
+   if(renderSampleTime/renderSampleFrames>.055&&renderer.getPixelRatio()>.8){
+    renderer.setPixelRatio(Math.max(.8,renderer.getPixelRatio()-.2));resize();
+   }
+   renderSampleTime=0;renderSampleFrames=0;
+  }
+ }
  for(const d of doors){
+  if(player?.paused)continue;
   const delta=d.target-d.angle;if(Math.abs(delta)<.0001)continue;
   const angle=d.angle+Math.sign(delta)*Math.min(Math.abs(delta),dt*2.25);
   if(mode==='walk'&&hitsDoor(camera.position.x,camera.position.z,avatar.radius,d.spec,angle))continue;
   d.angle=angle;d.object.rotation.y=d.rest+angle;
  }
- if(mode==='walk'){movement(dt);findDoor()}else if(orbitReady)orbit.update();
+ if(mode==='walk'){
+  if(player){
+   // Keep collision steps small even during faster playback on a slow device.
+   const elapsed=dt*rate,steps=Math.max(1,Math.ceil(elapsed/.035));
+   for(let i=0;i<steps;i++)advancePlayback(player,elapsed/steps,tourEnvironment);
+   applyPose();updatePlayTitle();
+   if(player.done||player.error)cancelPlayback(player.error||(player.kind==='tour'?'Экскурсия завершена.':'Осмотр завершён.'));
+  }else if(!preparing)movement(dt);
+  findDoor();
+ }else if(orbitReady)orbit.update();
  renderer.render(world,camera);requestAnimationFrame(animate);
 }
 function zoom(factor){
@@ -101,24 +169,32 @@ function zoom(factor){
 function bind(){
  modes.forEach(b=>b.onclick=()=>{if(b.dataset.mode!==mode)setMode(b.dataset.mode);canvas.focus({preventScroll:true})});
  $('reset').onclick=()=>setMode(mode,true);$('zoom-in').onclick=()=>zoom(.80);$('zoom-out').onclick=()=>zoom(1.25);
- $('door').onclick=operateDoor;
+ $('door').onclick=()=>{if(player||preparing)cancelPlayback();operateDoor()};
+ $('look-around').onclick=startPanorama;$('guided-tour').onclick=startTour;
+ $('play-stop').onclick=()=>cancelPlayback();
+ $('play-pause').onclick=()=>{if(player){player.paused=!player.paused;playbackUI()}};
+ $('play-rate').onclick=()=>{rate=rate===1?1.5:rate===1.5?2:1;playbackUI()};
  const stop=()=>{keys.clear();held.clear();drag=null;document.querySelectorAll('.held').forEach(b=>b.classList.remove('held'))};
- window.addEventListener('blur',stop);document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
+ const suspend=()=>{stop();if(player&&!player.paused){player.paused=true;playbackUI()}};
+ window.addEventListener('blur',suspend);document.addEventListener('visibilitychange',()=>{if(document.hidden)suspend()});
  window.addEventListener('keydown',e=>{
   if(mode!=='walk'||$('controls-dialog').open||e.altKey||e.ctrlKey||e.metaKey)return;
+  if(e.code==='Escape'&&(player||preparing)){cancelPlayback();return}
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD','KeyG'].includes(e.code)){
+   if(player||preparing)cancelPlayback();
    e.preventDefault();if(e.code==='KeyG'&&!e.repeat)operateDoor();else keys.add(e.code);
   }
  });window.addEventListener('keyup',e=>keys.delete(e.code));
  for(const b of document.querySelectorAll('[data-move]')){
   const v=b.dataset.move;
-  b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);held.add(v);b.classList.add('held');
+  b.onpointerdown=e=>{e.preventDefault();if(player||preparing)cancelPlayback();b.setPointerCapture(e.pointerId);held.add(v);b.classList.add('held');
     const x=Number(v==='right')-Number(v==='left'),z=Number(v==='backward')-Number(v==='forward');move(x,z,.055)};
   const end=()=>{held.delete(v);b.classList.remove('held')};b.onpointerup=end;b.onpointercancel=end;b.onlostpointercapture=end;
   b.onclick=e=>{if(e.detail===0&&mode==='walk')move(Number(v==='right')-Number(v==='left'),Number(v==='backward')-Number(v==='forward'),.12)};
  }
  canvas.addEventListener('pointerdown',e=>{
   if(mode!=='walk'||drag!==null||e.button!==0)return;
+  if(player||preparing)cancelPlayback();
   canvas.focus({preventScroll:true});drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);
  });
  canvas.addEventListener('pointermove',e=>{
@@ -127,12 +203,12 @@ function bind(){
   drag.x=e.clientX;drag.y=e.clientY;applyLook();
  });
  canvas.addEventListener('lostpointercapture',()=>{drag=null});canvas.addEventListener('contextmenu',e=>e.preventDefault());
- $('help').onclick=()=>{stop();$('controls-dialog').showModal()};$('close-help').onclick=()=>$('controls-dialog').close();
+ $('help').onclick=()=>{suspend();$('controls-dialog').showModal()};$('close-help').onclick=()=>$('controls-dialog').close();
  window.addEventListener('resize',resize);new ResizeObserver(resize).observe(stage);
 }
 try{
  release=await jsonAsset('release.json');
- renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.00;
+ renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio||1,matchMedia('(pointer: coarse)').matches?1.25:1.7));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.00;
  world=new THREE.Scene();world.background=new THREE.Color(0xe9e9df);
  const pmrem=new THREE.PMREMGenerator(renderer),env=new RoomEnvironment(),map=pmrem.fromScene(env,.035);world.environment=map.texture;world.environmentIntensity=.85;pmrem.dispose();env.dispose();
  world.add(new THREE.HemisphereLight(0xfff8e7,0xc1b39b,1.00));
@@ -144,7 +220,9 @@ try{
  for(const spec of release.doors){const object=model.getObjectByName(spec.node);if(!object)throw Error('В модели отсутствует дверь '+spec.node);doors.push({spec,object,rest:object.rotation.y,angle:0,target:0})}
  ceiling=release.ceilingNodes.map(name=>model.getObjectByName(name)).filter(Boolean);
  const box=new THREE.Box3(new THREE.Vector3(...release.bounds.min),new THREE.Vector3(...release.bounds.max));box.getCenter(center);box.getSize(size);radius=size.length()*.5;
- bind();setMode(new URL(location.href).searchParams.get('mode')==='walk'?'walk':'orbit');$('loader').hidden=true;requestAnimationFrame(animate);
+ const params=new URL(location.href).searchParams;
+ bind();setMode(params.get('mode')==='walk'?'walk':'orbit');$('loader').hidden=true;requestAnimationFrame(animate);
+ if(mode==='walk'&&params.get('play')==='tour')startTour();
 }catch(e){
  console.error(e);$('loader').querySelector('.loader-glyph').hidden=true;$('loader').querySelector('strong').textContent='Не удалось открыть 3D-сцену';
  reportError(progress,'Проверьте соединение и поддержку WebGL 2 в браузере.');const link=document.createElement('a');link.href='./index.html';link.textContent='Открыть чертежи и PDF';$('loader').append(link);

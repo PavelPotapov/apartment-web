@@ -1,0 +1,36 @@
+.plan-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:10px 0 27px}
+.plan-heading h1{margin:7px 0 5px;font:400 clamp(42px,5.4vw,72px)/1.08 var(--serif);letter-spacing:-.06em}
+.plan-meta{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.atlas-host{--page:#fffef9;background:var(--page);border:1px solid #cbd2c5;border-radius:7px;overflow:hidden;min-width:0}
+.atlas-tools,.atlas-options,.atlas-readout,.atlas-measure{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.atlas-tools{background:#e8ede3;padding:10px 16px;justify-content:space-between;border-bottom:1px solid #d0d8c9}
+.atlas-tools button,.jump-sheet,.close-sheet{min-height:34px;border-radius:4px;background:transparent;font-size:14px;font-weight:600;padding:5px 12px}
+.atlas-tools>button{border:1px solid #afbdad;color:#3f5948;order:2}
+.atlas-tabs{display:inline-flex;gap:3px;flex-wrap:wrap}
+.atlas-tabs button[aria-pressed=true],.atlas-tools>button[aria-pressed=true]{background:var(--green);color:white}
+.atlas-tools button:hover:not([aria-pressed=true]){background:#d8e2d4}
+.atlas-options{padding:9px 16px;background:#fafbf6;border-bottom:1px solid var(--line);column-gap:17px;row-gap:7px}
+.layer-toggle,.atlas-choice{display:inline-flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;white-space:nowrap}
+.layer-toggle input{accent-color:var(--green);width:16px;height:16px}
+.atlas-choice span{color:#566256}.atlas-choice select{font:inherit;color:var(--green);background:#fffef9;border:1px solid #c9d1c3;border-radius:3px;max-width:min(240px,62vw);padding:4px}
+.atlas-sheet{position:relative;height:clamp(360px,54vh,630px);background:#fffefa;isolation:isolate}
+#wall-host .atlas-sheet{height:clamp(330px,46vh,535px)}
+.atlas-sheet svg{width:100%;height:100%;display:block;touch-action:none;color:#3c5242;outline:0}
+.atlas-sheet svg:focus-visible{outline:2px solid #78917f;outline-offset:-3px}
+.atlas-sheet svg [role=button]{cursor:pointer}
+.atlas-sheet svg [role=button]:focus-visible{outline:2px solid #b27945}
+.atlas-actions{position:absolute;display:flex;align-items:center;gap:2px;bottom:11px;right:12px;border:1px solid #becbbb;border-radius:5px;background:#fffef9f5;box-shadow:0 2px 6px #374c380e}
+.atlas-actions button{display:grid;place-items:center;min-width:36px;height:35px;font-size:19px;line-height:1;color:#37513f;background:transparent;border-radius:3px}.atlas-actions button:hover{background:#edf1e6}
+.atlas-readout,.atlas-measure{padding:10px 17px;min-height:45px;border-top:1px solid var(--line);font-size:14px;font-variant-numeric:tabular-nums}
+.atlas-readout strong{color:var(--green);font-weight:650}.atlas-readout span{color:#525f54}.atlas-measure{background:#fbf1de;color:#754826}
+.atlas-readout .jump-sheet{color:var(--green);margin-left:auto;text-decoration:underline;text-underline-offset:3px}
+.point-link{color:#08646a;background:transparent;border-bottom:1px solid #8db2af;font-weight:650;padding:1px 0}
+.atlas-full{padding:10px;width:min(1620px,96vw);max-width:98vw;max-height:98dvh}
+.atlas-full .close-sheet{display:block;margin:0 0 7px auto;background:#e8ede3}
+.atlas-full .atlas-sheet,.atlas-full #wall-host .atlas-sheet{height:clamp(210px,64dvh,1050px)}
+#catalog{scroll-margin-top:12px}.pending{padding:20px}
+.atlas-key{display:flex;align-items:center;flex-wrap:wrap;gap:6px 18px;padding:7px 16px;font-size:12px;color:#48574d}
+.atlas-key span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--swatch)}
+@media(max-width:730px){#plan-host .atlas-sheet{height:clamp(245px,72vw,405px)}.atlas-full #plan-host .atlas-sheet{height:53dvh}}
+@media(max-width:730px){.wrap{padding-top:20px}.plan-heading{gap:10px;align-items:flex-start}.plan-heading .button{font-size:12px;padding:8px 10px;text-align:center;max-width:128px;margin-top:6px}.plan-heading h1{font-size:41px}.plan-meta{font-size:13px}.atlas-tools,.atlas-options{padding:8px;gap:6px 9px}.atlas-tools button,.atlas-choice,.layer-toggle{font-size:12px}.atlas-tools button{padding:4px 7px}.atlas-readout,.atlas-measure{font-size:13px;padding:9px}.atlas-actions button{min-width:33px}.atlas-sheet{height:405px}#wall-host .atlas-sheet{height:320px}.atlas-options select{font-size:14px}.atlas-full .atlas-sheet,.atlas-full #wall-host .atlas-sheet{height:53dvh}.atlas-readout .jump-sheet{margin-left:0}}
+

@@ -1,0 +1,11 @@
+.walk-playback{position:absolute;right:20px;top:18px;max-width:min(360px,94vw);padding:5px;background:#fffef9f2;border:1px solid #c6d1c3;border-radius:6px;box-shadow:0 2px 12px #20332212}
+.walk-playback button{font:600 14px var(--sans);min-height:40px;border-radius:4px;padding:6px 12px;background:transparent}
+.walk-playback button:hover{background:#e6ecdf}.walk-playback #guided-tour,.walk-playback #play-pause{color:white;background:var(--green)}
+#play-title{display:block;padding:4px 7px 6px;font-size:14px;font-weight:600;color:var(--green)}
+.play-buttons{display:flex;align-items:center;gap:3px;flex-wrap:wrap}#play-progress{display:block;width:calc(100% - 12px);height:4px;margin:7px 6px;accent-color:var(--green)}
+#play-message:not(:empty){display:block;max-width:240px;padding:4px 7px;color:var(--muted);font-size:13px}
+.stage.playing .walk-control,.stage.playing .stage-info{display:none}
+@media(max-width:900px){.walk-playback{top:70px;left:12px;right:auto}.walk-mode .stage-info{display:none}}
+@media(max-width:600px){.walk-playback{top:65px}.walk-playback button{min-height:44px}.walk-control{padding-bottom:env(safe-area-inset-bottom)}}
+@media(max-height:500px) and (min-width:600px){.walk-playback{top:10px;right:10px;left:auto}}
+

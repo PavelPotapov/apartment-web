@@ -1,7 +1,10 @@
 import {projectAsset,jsonAsset,number,element,reportError} from './data.js';
+import {ApartmentPlan} from './plan.js';
+import {Elevation,formatHeights} from './elevation.js';
 const el=id=>document.getElementById(id);
 const params=new URL(location.href).searchParams;
 let selected=params.get('wall')?.toUpperCase()||'A1', sheets=[], rooms=[], furniture=[], release, query='';
+let elevation;
 const clean=s=>String(s??'').toLowerCase().replace(/ё/g,'е').trim();
 function searchWall(w) {
  const alias=query.toUpperCase().replace(/^[АВСДЕФГ](?=\d)/,c=>({'А':'A','В':'B','С':'C','Д':'D','Е':'E','Ф':'F','Г':'G'}[c]));
@@ -38,14 +41,17 @@ function paint() {
  el('current-room').textContent=r.name+' · '+number(r.area,2)+' м²';
  el('wall-title').textContent='Стена '+w.code;
  el('sheet-link').href=projectAsset(release.pdf)+'#page='+w.page;el('sheet-link').textContent='Лист '+w.page+' · PDF ↗';
- const img=el('drawing');img.src=projectAsset(w.image);img.alt='Развёртка стены '+w.code+' со всеми обозначениями из модели';
- el('wall-metrics').replaceChildren(metric('Длина стены',number(w.width)+' мм'),metric('Высота профиля',number(w.height??w.ceiling)+' мм'),metric('Шаг сетки',number(w.grid_mm)+' мм'));
+ elevation.show(w);
+ el('wall-metrics').replaceChildren(metric('Длина стены',number(w.width)+' мм'),metric('Высота профиля',number(w.height??w.ceiling)+' мм'));
  if(w.membrane_mm)el('wall-metrics').append(metric('Чистый потолок',number(w.membrane_mm)+' мм'));
  if(w.cornice_bottom_mm)el('wall-metrics').append(metric('Низ карниза',number(w.cornice_bottom_mm)+' мм'));
  if(w.floor_trim_mm)el('wall-metrics').append(metric('Напольный плинтус',number(w.floor_trim_mm)+' мм'));
  if(w.runs?.length>1)el('wall-metrics').append(metric('Размерная цепь',w.runs.map(n=>number(n)).join(' + ')+' мм'));
  el('wall-note').textContent=w.opening_note||'';el('wall-note').hidden=!w.opening_note;
- el('sockets').replaceChildren(...w.sockets.map(s=>cellRow(['№ '+s.number,number(s.u)+' мм',String(s.height)+' мм',s.status])));
+ el('sockets').replaceChildren(...w.sockets.map(s=>{
+  const point=element('button','№ '+s.number,'point-link');point.onclick=()=>elevation.selectPoint(s.number);
+  return cellRow([point,number(s.u)+' мм',formatHeights(s),s.archived?'Архивная привязка':s.approximate?'Уточнить':s.status])
+ }));
  el('socket-section').hidden=!w.sockets.length;
  const items=furniture.filter(i=>i.roomId===key);let inventory=el('inventory');
  if(!inventory){inventory=element('details');inventory.id='inventory';inventory.className='inventory';el('socket-section').after(inventory)}
@@ -65,15 +71,17 @@ async function showEstimate(){
  }));el('estimates').hidden=false;
 }
 el('search').addEventListener('input',e=>{query=clean(e.target.value);paint()});
-el('enlarge').addEventListener('click',()=>{const img=el('drawing');el('lightbox-image').src=img.src;el('lightbox-image').alt=img.alt;el('lightbox-title').textContent=el('wall-title').textContent;el('lightbox').showModal()});
-el('close-lightbox').onclick=()=>el('lightbox').close();
-el('lightbox').onclick=e=>{if(e.target===el('lightbox'))el('lightbox').close()};
 try {
  release=await jsonAsset('release.json');const technical=await jsonAsset(release.technical);sheets=technical.walls;rooms=technical.rooms;furniture=technical.inventory||[];
  el('download').href=projectAsset(release.pdf);el('area').replaceChildren(document.createTextNode(number(rooms.reduce((sum,r)=>sum+Number(r.area),0),2)+' '),element('small','м²'));
  el('rooms-count').textContent=rooms.length;el('walls-count').textContent=sheets.length;
  const historyLink=element('a','История выпусков ↗');historyLink.href='https://github.com/PavelPotapov/apartment-web/commits/main/public/data/release.json';historyLink.rel='noopener';historyLink.target='_blank';
- el('release-version').append(document.createTextNode('Версия '+release.version+' · '),historyLink);paint();
+ el('release-version').append(document.createTextNode('Версия '+release.version+' · '),historyLink);
+ elevation=new Elevation(el('wall-host'));
+ new ApartmentPlan(el('plan-host'),technical,(code,point)=>{
+  query='';el('search').value='';select(code);if(point)elevation.selectPoint(point);
+ });
+ paint();
  showEstimate().catch(()=>{});
-} catch(e){console.error(e);reportError(el('data-status'),'Альбом не загрузился. Проверьте соединение.')}
+} catch(e){console.error(e);reportError(el('plan-host'),'Чертежи не загрузились. Проверьте соединение.');reportError(el('data-status'),'Альбом не загрузился.')}
 

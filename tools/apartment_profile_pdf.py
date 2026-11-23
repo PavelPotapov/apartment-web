@@ -18,7 +18,11 @@ def bundled_python():
     return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
-def write_pdf(sheets, destination):
+def write_pdf(sheets, destination, data_root=None):
+    if isinstance(sheets, dict):
+        from technical_album import write_technical_pdf
+        return write_technical_pdf(sheets, destination, data_root or Path(destination).parent)
+
     from io import BytesIO
     from PIL import Image
     from reportlab.lib.colors import HexColor

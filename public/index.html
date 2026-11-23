@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <link rel="icon" href="./assets/icon.png"><meta name="theme-color" content="#f9f7f1"><title>Атлас квартиры · ЖК Привилегия</title>
- <link rel="stylesheet" href="./style.css"><link rel="preload" as="image" href="./assets/living.webp">
+ <link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./atlas.css">
 </head>
 <body>
 <header class="mast"><div class="mast-inner">
@@ -11,14 +11,11 @@
  <nav aria-label="Страницы"><a class="active" href="./index.html" aria-current="page">Документация</a><a href="./scene.html">3D-просмотр <span aria-hidden="true">↗</span></a></nav>
 </div></header>
 <main class="wrap">
- <section class="hero">
-  <div class="hero-copy"><p class="eyebrow"><i></i> Челябинск · Дизайн-проект</p>
-   <h1>Квартира в<br>Привилегии</h1>
-   <p class="intro">Развёртки стен, размеры и электрика каждой комнаты. Изучите проект на чертежах или пройдите по квартире в 3D.</p>
-   <div class="hero-actions"><a class="button" href="./scene.html"><span class="cube" aria-hidden="true">◇</span> Открыть 3D</a><a id="download" class="text-action" download href="./data/apartment.pdf"><span aria-hidden="true">↓</span> Скачать PDF</a></div>
-   <dl class="hero-stats"><div><dt>Площадь</dt><dd id="area">100,30 <small>м²</small></dd></div><div><dt>Помещения</dt><dd id="rooms-count">7</dd></div><div><dt>Развёртки</dt><dd id="walls-count">39</dd></div></dl>
-  </div>
-  <figure class="hero-image"><img src="./assets/living.webp" alt="Светлая кухня-гостиная с островом и классическими белыми фасадами"><figcaption><span>A</span> Кухня-гостиная</figcaption></figure>
+ <section id="plan" class="atlas-plan">
+  <div class="plan-heading"><div><p class="eyebrow"><i></i> ЖК Привилегия · Челябинск</p><h1>План квартиры</h1>
+   <p class="plan-meta"><span id="area">100,30 м²</span> · <span id="rooms-count">7</span> помещений · <span id="walls-count">39</span> развёрток</p></div>
+   <a class="button" id="download" download href="./data/apartment.pdf">↓ Скачать альбом PDF</a></div>
+  <div id="plan-host" class="atlas-host" aria-label="Интерактивный план квартиры"><p class="pending">Загрузка плана…</p></div>
  </section>
  <section id="catalog" class="catalog">
   <div class="section-head"><div><p class="eyebrow"><i></i> Рабочие чертежи</p><h2>Развёртки стен</h2></div><label class="search"><span aria-hidden="true"></span><input id="search" type="search" placeholder="Найти стену или розетку" aria-label="Поиск стены, комнаты или номера розетки"></label></div>
@@ -28,7 +25,7 @@
    <article class="detail">
     <div class="detail-header"><div><p id="current-room" class="eyebrow"></p><h3 id="wall-title">Стена</h3></div><a id="sheet-link" target="_blank" rel="noopener" class="sheet-ref" href="./data/apartment.pdf">Лист PDF ↗</a></div>
     <div id="wall-list" class="wall-list" aria-label="Выбрать стену"></div>
-    <button id="enlarge" class="drawing" aria-label="Увеличить развёртку"><img id="drawing" alt=""><span>Увеличить ↗</span></button>
+    <div id="wall-host" class="atlas-host" aria-label="Интерактивная развёртка стены"></div>
     <dl id="wall-metrics" class="wall-metrics"></dl><p id="wall-note" class="wall-note"></p>
     <div id="socket-section"><h4>Розетки</h4><div class="table-wrap"><table><thead><tr><th>Точка</th><th>От начала стены</th><th>От пола</th><th>Статус</th></tr></thead><tbody id="sockets"></tbody></table></div></div>
    </article>
@@ -37,6 +34,5 @@
  <section class="estimates" id="estimates" hidden><p class="eyebrow"><i></i> Материалы</p><h2>Напольные покрытия</h2><p id="estimate-date"></p><div class="table-wrap"><table><thead><tr><th>Материал</th><th>Площадь</th><th>Запас</th><th>К заказу</th><th>Цена / м²</th><th>Сумма</th></tr></thead><tbody id="estimate-rows"></tbody></table></div><p id="estimate-note"></p><a class="text-action" id="estimate-download" download href="./data/material-estimates.pdf">↓ Скачать расчёт в PDF</a></section>
 </main>
 <footer class="footer"><span>ЖК Привилегия · Челябинск</span><span id="release-version"></span></footer>
-<dialog id="lightbox"><div><strong id="lightbox-title"></strong><button aria-label="Закрыть" id="close-lightbox">Закрыть ×</button></div><img id="lightbox-image" alt=""></dialog>
 <script type="module" src="./reference.js"></script>
 </body></html>
